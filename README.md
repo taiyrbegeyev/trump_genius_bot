@@ -22,6 +22,8 @@
 ## About the Project
 Telegram Bot that can search for the dumbest things Donald Trump has ever said by keyword. If you want some diversity, random quote and meme options are available.
 
+![Intro](https://user-images.githubusercontent.com/44882080/61597618-092fe280-ac13-11e9-906a-c082c6c94932.jpg)
+
 Available commands:
 * **/start** - show available commands 
 * **/search** - search quotes
