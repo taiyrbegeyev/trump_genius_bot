@@ -38,24 +38,34 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, greetings);
 });
 
+let answerCallbacks = {};
+bot.on('message', (msg) => {
+  const callback = answerCallbacks[msg.chat.id];
+  if (callback) {
+    delete answerCallbacks[msg.chat.id];
+    return callback(msg);
+  }
+});
+
 bot.onText(/\/search/, (msg) => {
   bot.sendSticker(msg.chat.id, 'CAADAgAD8QYAAnlc4gkl_dcUtPY2AgI');
-  bot.sendMessage(msg.chat.id, 'Amazing. Send me the word you want me to search for');
-
-  bot.on('message', (req) => {
-    axios.get(donald_trump_api + '/search/quote', {
-      params: {
-        query: req.text
+  bot.sendMessage(msg.chat.id, 'Amazing. Send me the word you want me to search for')
+    .then(() => {
+      answerCallbacks[msg.chat.id] = (answer) => {
+        axios.get(donald_trump_api + '/search/quote', {
+          params: {
+          query: answer.text
+          }
+        })
+          .then((response) => {
+            bot.sendMessage(msg.chat.id, `${response.data.total}`);
+          })
+          .catch((error) => {
+            bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+            console.log('/search ', error);
+          });
       }
     })
-      .then((response) => {
-        //bot.sendMessage(msg.chat.id, `${response.data.count}`);
-      })
-      .catch((error) => {
-        bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
-        console.log('/search ', error);
-      });
-  });
 });
 
 bot.onText(/\/random/, (msg) => {
@@ -122,5 +132,49 @@ bot.onText(/\/meme/, (msg) => {
       console.log('/meme: ', error);
     });
 
-  bot.sendPhoto(msg.chat.id, 'src/assets/image.jpg');
+  bot.sendPhoto(msg.chat.id, 'src/assets/image.jpg', {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: 'next random meme',
+            callback_data: 'new_meme'
+          }
+        ]
+      ]
+    }
+  });
+});
+
+bot.on("callback_query", (callbackQuery) => {
+  const msg = callbackQuery.message;
+  const data = callbackQuery.data;
+  bot.answerCallbackQuery(callbackQuery.id)
+    .then(() => {
+      if (data === 'new_meme') {
+          axios.get(donald_trump_api + '/random/meme', {
+            responseType: 'stream'
+          })
+            .then((response) => {
+              response.data.pipe(fs.createWriteStream('src/assets/image.jpg'));
+            })
+            .catch((error) => {
+              bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+              console.log('/meme: ', error);
+            });
+        
+          bot.sendPhoto(msg.chat.id, 'src/assets/image.jpg', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: 'next random meme',
+                    callback_data: 'new_meme'
+                  }
+                ]
+              ]
+            }
+          });
+      }
+    });
 });
