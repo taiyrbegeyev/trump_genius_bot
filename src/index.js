@@ -48,26 +48,46 @@ bot.onText(/\/search/, (msg) => {
         query: req.text
       }
     })
-    .then((response) => {
-      //bot.sendMessage(msg.chat.id, `${response.data.count}`);
-    })
-    .catch((error) => {
-      bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
-      console.log('/search', error);
-    });
+      .then((response) => {
+        //bot.sendMessage(msg.chat.id, `${response.data.count}`);
+      })
+      .catch((error) => {
+        bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+        console.log('/search ', error);
+      });
   });
 });
 
 bot.onText(/\/random/, (msg) => {
   axios.get(donald_trump_api + '/random/quote')
-  .then((response) => {
-    bot.sendSticker(msg.chat.id, 'CAADAgAD7QYAAnlc4gnK88QdYpKR7AI');
-    bot.sendMessage(msg.chat.id, `${response.data.value}`);
-  })
-  .catch((error) => {
-    bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
-    console.log('/random', error);
-  });
+    .then((response) => {
+      bot.sendSticker(msg.chat.id, 'CAADAgAD7QYAAnlc4gnK88QdYpKR7AI')
+        .then(() => {
+          if (typeof response.data._embedded.source[0].url !== undefined) {
+            bot.sendMessage(msg.chat.id, `${response.data.value}`, {
+              reply_markup: {
+                inline_keyboard: [
+                  [{
+                    text: "open",
+                    url: response.data._embedded.source[0].url
+                  }]
+                ]
+              }
+            });
+          }
+          else {
+            bot.sendMessage(msg.chat.id, `${response.data.value}`);
+          }
+        })
+        .catch((error) => {
+          bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+          console.log('/random, sendSticker: ', error);      
+        })
+    })
+    .catch((error) => {
+      bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+      console.log('/random: ', error);
+    });
 });
 
 bot.onText(/\/meme/, (msg) => {
@@ -94,12 +114,13 @@ bot.onText(/\/meme/, (msg) => {
   axios.get(donald_trump_api + '/random/meme', {
     responseType: 'stream'
   })
-  .then((response) => {
-    response.data.pipe(fs.createWriteStream('image.jpg'));
-  })
-  .catch((error) => {
-    console.log(error);
-  });
+    .then((response) => {
+      response.data.pipe(fs.createWriteStream('src/assets/image.jpg'));
+    })
+    .catch((error) => {
+      bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+      console.log('/meme: ', error);
+    });
 
-  bot.sendPhoto(msg.chat.id, 'image.jpg');
+  bot.sendPhoto(msg.chat.id, 'src/assets/image.jpg');
 });
