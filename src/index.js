@@ -45,6 +45,47 @@ bot.on('message', (msg) => {
   }
 });
 
+let total;
+let numberOfPages = 1;
+const getPagination = (current, maxPage) => {
+  const keys = [];
+  if (current > 1) {
+    keys.push({
+      text: `«1`,
+      callback_data: '1'
+    });
+  }
+  if (current > 2) {
+    keys.push({
+      text: `‹${current-1}`,
+      callback_data: (current-1).toString()
+    });
+  }
+  keys.push({ 
+    text: `-${current}-`,
+    callback_data: current.toString()
+  });
+  if (current < maxPage - 1) {
+    keys.push({
+      text: `${current + 1}›`,
+      callback_data: (current + 1).toString()
+    });
+  }
+  if (current < maxPage) { 
+    keys.push({
+      text: `${maxPage}»`,
+      callback_data: maxPage.toString()
+    });
+  }
+
+  return {
+    reply_markup: JSON.stringify({
+      inline_keyboard: [ keys ]
+    })
+  };
+}
+
+let quotes = [];
 bot.onText(/\/search/, (msg) => {
   bot.sendSticker(msg.chat.id, 'CAADAgAD8QYAAnlc4gkl_dcUtPY2AgI');
   bot.sendMessage(msg.chat.id, 'Amazing. Send me the word you want me to search for')
@@ -56,7 +97,24 @@ bot.onText(/\/search/, (msg) => {
           }
         })
           .then((response) => {
-            bot.sendMessage(msg.chat.id, `${response.data.total}`);
+            quotes =  response.data._embedded.quotes;
+            total = response.data.total;
+            numberOfPages = total % 3 === 1 ? Math.round( (total / 3) + 1) : Math.round( (total / 3));
+            
+            if (total <= 0) {
+              bot.sendMessage(msg.chat.id, 'No results. Try to search for something else');
+            }
+            else if (total >= 3) {
+              bot.sendMessage(msg.chat.id, `Page: 1\n\n${quotes[0].value}\n\n${quotes[1].value}\n\n${quotes[2].value}`, getPagination(1, numberOfPages));
+            }
+            else {
+              if (total % 3 === 1) {
+                bot.sendMessage(msg.chat.id, `Page: 1\n\n${quotes[0].value}`, getPagination(1, numberOfPages));
+              }
+              else if (total % 3 === 2) {
+                bot.sendMessage(msg.chat.id, `Page: 1\n\n${quotes[0].value}\n\n${quotes[1].value}`, getPagination(1, numberOfPages));
+              }
+            }
           })
           .catch((error) => {
             bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
@@ -190,6 +248,32 @@ bot.on("callback_query", (callbackQuery) => {
           bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
           console.log('/random: ', error);
         });
+      }
+      else if (typeof parseInt(data) === "number") {
+        let current = parseInt(data);
+        const editOptions = Object.assign(
+          {},
+          getPagination(parseInt(data), numberOfPages),
+          { 
+            chat_id: msg.chat.id,
+            message_id: msg.message_id
+          }
+        );
+        // bot.editMessageText('Page: ' + data, editOptions);
+        if (numberOfPages - current !== 0) {
+          bot.editMessageText(`Page: ${current}\n\n${quotes[current * 3 - 3].value}\n\n${quotes[current * 3 - 2].value}\n\n${quotes[current * 3 - 1].value}`, editOptions);
+        }
+        else {
+          if (total % 3 === 0) {
+            bot.editMessageText(`Page: ${current}\n\n${quotes[current * 3 - 3].value}\n\n${quotes[current * 3 - 2].value}\n\n${quotes[current * 3 - 1].value}`, editOptions);
+          }
+          else if (total % 3 === 1) {
+            bot.editMessageText(`Page: ${current}\n\n${quotes[current * 3 - 3].value}`, editOptions);
+          }
+          else if (total % 3 === 2) {
+            bot.editMessageText(`Page: ${current}\n\n${quotes[current * 3 - 3].value}\n\n${quotes[current * 3 - 2].value}`, editOptions);
+          }
+        }
       }
     });
 });
