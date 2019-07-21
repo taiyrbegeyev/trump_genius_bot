@@ -3,7 +3,6 @@ const app = express();
 const TelegramBot = require('node-telegram-bot-api');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-const request = require("request");
 const fs = require('fs');
 require('dotenv').config();
 
@@ -14,7 +13,6 @@ const TOKEN = process.env.API_KEY;
 
 // import constants
 const greetings = require('./assets/constants').greetings;
-const commands = require('./assets/constants').commands;
 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
@@ -54,7 +52,7 @@ bot.onText(/\/search/, (msg) => {
       answerCallbacks[msg.chat.id] = (answer) => {
         axios.get(donald_trump_api + '/search/quote', {
           params: {
-          query: answer.text
+            query: answer.text
           }
         })
           .then((response) => {
@@ -78,8 +76,12 @@ bot.onText(/\/random/, (msg) => {
               reply_markup: {
                 inline_keyboard: [
                   [{
-                    text: "open",
+                    text: 'open',
                     url: response.data._embedded.source[0].url
+                  }],
+                  [{
+                    text: 'next random quote',
+                    callback_data: 'next_random_quote'
                   }]
                 ]
               }
@@ -101,26 +103,6 @@ bot.onText(/\/random/, (msg) => {
 });
 
 bot.onText(/\/meme/, (msg) => {
-  // axios.get(donald_trump_api + '/random/meme')
-  // .then((response) => {
-  //   bot.sendSticker(msg.chat.id, 'CAADAgAD7AYAAnlc4gmyzyRQT6BJSwI');
-  //   bot.sendPhoto(msg.chat.id, response.data.toString());
-  // })
-  // .catch((error) => {
-  //   bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
-  //   console.log('/meme ', error);
-  // });
-  // const filename = "tmp_pic/"+microtime.now()+".png"; 
-  // const test_link = 'https://api.tronalddump.io/random/meme';
-  // // bot.sendPhoto(msg.chat.id, `https://api.tronalddump.io/random/meme`);
-  // request(test_link).pipe(fs.createWriteStream(filename).on('close', function() {
-  //   // done download file
-  //   bot.sendPhoto(msg.chat.id, filename).then(function(){
-  //   // photo sent, deleted temp file
-  //     fs.unlinkSync(filename);
-  //   });
-  // }));
-
   axios.get(donald_trump_api + '/random/meme', {
     responseType: 'stream'
   })
@@ -138,7 +120,7 @@ bot.onText(/\/meme/, (msg) => {
         [
           {
             text: 'next random meme',
-            callback_data: 'new_meme'
+            callback_data: 'next_random_meme'
           }
         ]
       ]
@@ -151,30 +133,63 @@ bot.on("callback_query", (callbackQuery) => {
   const data = callbackQuery.data;
   bot.answerCallbackQuery(callbackQuery.id)
     .then(() => {
-      if (data === 'new_meme') {
-          axios.get(donald_trump_api + '/random/meme', {
-            responseType: 'stream'
+      if (data === 'next_random_meme') {
+        axios.get(donald_trump_api + '/random/meme', {
+          responseType: 'stream'
+        })
+          .then((response) => {
+            response.data.pipe(fs.createWriteStream('src/assets/image.jpg'));
           })
-            .then((response) => {
-              response.data.pipe(fs.createWriteStream('src/assets/image.jpg'));
+          .catch((error) => {
+            bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+            console.log('/meme: ', error);
+          });
+      
+        bot.sendPhoto(msg.chat.id, 'src/assets/image.jpg', {
+          reply_markup: {
+            inline_keyboard: [
+              [{
+                  text: 'next random meme',
+                  callback_data: 'next_random_meme'
+              }]
+            ]
+          }
+        });
+      }
+      else if (data === 'next_random_quote') {
+        axios.get(donald_trump_api + '/random/quote')
+        .then((response) => {
+          bot.sendSticker(msg.chat.id, 'CAADAgAD7QYAAnlc4gnK88QdYpKR7AI')
+            .then(() => {
+              if (typeof response.data._embedded.source[0].url !== undefined) {
+                bot.sendMessage(msg.chat.id, `${response.data.value}`, {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{
+                        text: 'open',
+                        url: response.data._embedded.source[0].url
+                      }],
+                      [{
+                        text: 'next random quote',
+                        callback_data: 'next_random_quote'
+                      }]
+                    ]
+                  }
+                });
+              }
+              else {
+                bot.sendMessage(msg.chat.id, `${response.data.value}`);
+              }
             })
             .catch((error) => {
               bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
-              console.log('/meme: ', error);
-            });
-        
-          bot.sendPhoto(msg.chat.id, 'src/assets/image.jpg', {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: 'next random meme',
-                    callback_data: 'new_meme'
-                  }
-                ]
-              ]
-            }
-          });
+              console.log('/random, sendSticker: ', error);      
+            })
+        })
+        .catch((error) => {
+          bot.sendMessage(msg.chat.id, 'Something went wrong. Try later');
+          console.log('/random: ', error);
+        });
       }
     });
 });
